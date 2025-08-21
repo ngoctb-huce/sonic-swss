@@ -98,6 +98,33 @@ TableInfo *getTableInfo(const std::string &table_name)
     return &it->second;
 }
 
+TableInfo *getTableInfoFromAllContexts(const std::string &table_name)
+{
+    // First try to get from the current active table definition
+    TableInfo *table_info = getTableInfo(table_name);
+    if (table_info != nullptr)
+    {
+        return table_info;
+    }
+
+    // If not found, search across all contexts
+    if (gP4Orch && gP4Orch->getTablesDefnManager())
+    {
+        const auto& all_tables = gP4Orch->getTablesDefnManager()->getAllTablesInfo();
+        for (const auto &context_entry : all_tables)
+        {
+            const auto &tablesinfo = context_entry.second;
+            auto it = tablesinfo.m_tableInfoMap.find(table_name);
+            if (it != tablesinfo.m_tableInfoMap.end())
+            {
+                return const_cast<TableInfo*>(&it->second);
+            }
+        }
+    }
+
+    return nullptr;
+}
+
 ActionInfo *getTableActionInfo(TableInfo *table, const std::string &action_name)
 {
     if (!table)

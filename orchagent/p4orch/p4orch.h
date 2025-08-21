@@ -50,6 +50,7 @@ class P4Orch : public Orch
     p4orch::AclRuleManager *getAclRuleManager();
     p4orch::WcmpManager *getWcmpManager();
     GreTunnelManager *getGreTunnelManager();
+    TablesDefnManager *getTablesDefnManager() { return m_tablesDefnManager.get(); }
     TablesInfo *tablesinfo = NULL;
 
     // m_p4TableToManagerMap: P4 APP DB table name, P4 Object Manager

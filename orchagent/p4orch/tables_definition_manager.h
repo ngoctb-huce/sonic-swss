@@ -62,6 +62,9 @@ class TablesDefnManager : public ObjectManagerInterface
     ReturnCode getSaiObject(const std::string &json_key, sai_object_type_t &object_type,
                             std::string &object_key) override;
 
+    // Get TablesInfo from all contexts for searching across multiple table definitions
+    const TablesInfoMap& getAllTablesInfo() const { return m_tablesinfoMap; }
+
   private:
     ReturnCodeOr<TablesInfoAppDbEntry> deserializeTablesInfoEntry(const std::string &key,
                                                                   const std::vector<swss::FieldValueTuple> &attributes);
