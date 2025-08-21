@@ -345,9 +345,10 @@ ReturnCode TablesDefnManager::processAddRequest(const TablesInfoAppDbEntry &app_
 
     SWSS_LOG_ENTER();
 
-    if (!m_tablesinfoMap.empty())
+    // Check if this context already exists
+    if (m_tablesinfoMap.find(app_db_entry.context) != m_tablesinfoMap.end())
     {
-        // For now p4rt can send only same table-definition, so ignore it silently
+        // Context already exists, ignore duplicate silently
         return ReturnCode();
     }
 

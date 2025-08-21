@@ -308,6 +308,11 @@ struct P4ExtTableAppDbEntry
 };
 
 TableInfo *getTableInfo(const std::string &table_name);
+
+// Get table info from all available table definitions.
+// Searches across all contexts if table is not found in the current active definition.
+TableInfo *getTableInfoFromAllContexts(const std::string &table_name);
+
 ActionInfo *getTableActionInfo(TableInfo *table, const std::string &action_name);
 
 // Get the table name and key content from the given P4RT key.
