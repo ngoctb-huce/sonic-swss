@@ -21,6 +21,7 @@
 
 #include "dash/dashorch.h"
 #include "dash/dashmeterorch.h"
+#include "dash/dashhaorch.h"
 #include "flex_counter/flowcounterrouteorch.h"
 
 #include "flexcounterorch.h"
@@ -40,7 +41,7 @@ extern SwitchOrch *gSwitchOrch;
 extern sai_object_id_t gSwitchId;
 extern string gMySwitchType;
 
-int gFlexCounterDelaySec;
+#define FLEX_COUNTER_DELAY_SEC 60
 
 #define BUFFER_POOL_WATERMARK_KEY   "BUFFER_POOL_WATERMARK"
 #define PORT_KEY                    "PORT"
@@ -62,6 +63,7 @@ int gFlexCounterDelaySec;
 #define WRED_PORT_KEY               "WRED_ECN_PORT"
 #define SRV6_KEY                    "SRV6"
 #define SWITCH_KEY                  "SWITCH"
+#define HA_SET_KEY                  "HA_SET"
 
 unordered_map<string, string> flexCounterGroupMap =
 {
@@ -92,7 +94,8 @@ unordered_map<string, string> flexCounterGroupMap =
     {"WRED_ECN_PORT", WRED_PORT_STAT_COUNTER_FLEX_COUNTER_GROUP},
     {"WRED_ECN_QUEUE", WRED_QUEUE_STAT_COUNTER_FLEX_COUNTER_GROUP},
     {SRV6_KEY, SRV6_STAT_COUNTER_FLEX_COUNTER_GROUP},
-    {SWITCH_KEY, SWITCH_STAT_COUNTER_FLEX_COUNTER_GROUP}
+    {SWITCH_KEY, SWITCH_STAT_COUNTER_FLEX_COUNTER_GROUP},
+    {HA_SET_KEY, HA_SET_STAT_COUNTER_FLEX_COUNTER_GROUP}
 };
 
 
@@ -121,12 +124,11 @@ FlexCounterOrch::FlexCounterOrch(DBConnector *db, vector<string> &tableNames):
         SWSS_LOG_ERROR("System error reading create_only_config_db_buffers: %s", e.what());
     }
 
-    SWSS_LOG_NOTICE("Counter delay is %d seconds", gFlexCounterDelaySec);
-    if (gFlexCounterDelaySec > 0)
+    m_delayTimer = std::make_unique<SelectableTimer>(timespec{.tv_sec = FLEX_COUNTER_DELAY_SEC, .tv_nsec = 0});
+    if (WarmStart::isWarmStart())
     {
-        m_delayTimer = new SelectableTimer(timespec{.tv_sec = static_cast<time_t>(gFlexCounterDelaySec), .tv_nsec = 0});
-        auto delayExecutor = new ExecutableTimer(m_delayTimer, this, "FLEX_COUNTER_DELAY");
-        Orch::addExecutor(delayExecutor);
+        m_delayExecutor = std::make_unique<ExecutableTimer>(m_delayTimer.get(), this, "FLEX_COUNTER_DELAY");
+        Orch::addExecutor(m_delayExecutor.get());
         m_delayTimer->start();
     }
     else
@@ -158,6 +160,7 @@ void FlexCounterOrch::doTask(Consumer &consumer)
 
     VxlanTunnelOrch* vxlan_tunnel_orch = gDirectory.get<VxlanTunnelOrch*>();
     DashOrch* dash_orch = gDirectory.get<DashOrch*>();
+    DashHaOrch* dash_ha_orch = gDirectory.get<DashHaOrch*>();
     if (gPortsOrch && !gPortsOrch->allPortsReady())
     {
         return;
@@ -300,6 +303,10 @@ void FlexCounterOrch::doTask(Consumer &consumer)
                     if (dash_orch && (key == DASH_METER_KEY))
                     {
                         dash_orch->handleMeterFCStatusUpdate((value == "enable"));
+                    }
+                    if (dash_ha_orch && (key == HA_SET_KEY))
+                    {
+                        dash_ha_orch->handleHaSetFCStatusUpdate((value == "enable"));
                     }
                     if (gCoppOrch && (key == FLOW_CNT_TRAP_KEY))
                     {
